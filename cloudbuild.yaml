@@ -40,6 +40,9 @@ steps:
 
   - id: "Create namespace (if missing)"
     name: "gcr.io/cloud-builders/kubectl"
+    env:
+      - "CLOUDSDK_COMPUTE_REGION=asia-south1"
+      - "CLOUDSDK_CONTAINER_CLUSTER=my-gke-cluster"
     args: ["create","ns","default","--dry-run=client","-o","yaml"]
     entrypoint: "bash"
     script: |
@@ -61,4 +64,3 @@ steps:
 images:
   - "asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app:$SHORT_SHA"
   - "asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app:latest"
-
