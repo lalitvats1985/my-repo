@@ -1,5 +1,5 @@
 # Cloud Build pipeline: build -> push -> deploy to GKE
-# Hard-coded configuration for new-project-23jan2025
+# Uses trigger substitutions for Artifact Registry and GKE
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -7,60 +7,59 @@ options:
 steps:
   - id: "Docker build"
     name: "gcr.io/cloud-builders/docker"
-    env:
-      - "IMAGE=asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app"
     args:
       [
         "build",
-        "-t","$IMAGE:$SHORT_SHA",
-        "-t","$IMAGE:latest",
+        "-t","$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:$SHORT_SHA",
+        "-t","$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:latest",
         "."
       ]
 
   - id: "Push :$SHORT_SHA"
     name: "gcr.io/cloud-builders/docker"
-    env:
-      - "IMAGE=asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app"
-    args: ["push","$IMAGE:$SHORT_SHA"]
+    args:
+      [
+        "push",
+        "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:$SHORT_SHA"
+      ]
 
   - id: "Push :latest"
     name: "gcr.io/cloud-builders/docker"
-    env:
-      - "IMAGE=asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app"
-    args: ["push","$IMAGE:latest"]
+    args:
+      [
+        "push",
+        "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:latest"
+      ]
 
   - id: "Get GKE credentials"
     name: "gcr.io/cloud-builders/gcloud"
     args:
       [
-        "container","clusters","get-credentials","vcipl-gke-cluster",
-        "--zone","asia-south1-a",
+        "container","clusters","get-credentials","$_GKE_CLUSTER",
+        "--zone","$_GKE_REGION",
         "--project","$PROJECT_ID"
       ]
 
   - id: "Create namespace (if missing)"
     name: "gcr.io/cloud-builders/kubectl"
-    env:
-      - "CLOUDSDK_COMPUTE_ZONE=asia-south1-a"
-      - "CLOUDSDK_CONTAINER_CLUSTER=vcipl-gke-cluster"
-    args: ["create","ns","default","--dry-run=client","-o","yaml"]
+    args: ["create","ns","$_K8S_NAMESPACE","--dry-run=client","-o","yaml"]
     entrypoint: "bash"
     script: |
       set -euo pipefail
-      kubectl create ns "default" --dry-run=client -o yaml | kubectl apply -f -
+      kubectl create ns "$_K8S_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
 
   - id: "Apply manifests"
     name: "gcr.io/cloud-builders/kubectl"
-    args: ["apply","-f","k8s/","-n","default"]
+    args: ["apply","-f","k8s/","-n","$_K8S_NAMESPACE"]
 
   - id: "Rollout restart (pull new image)"
     name: "gcr.io/cloud-builders/kubectl"
-    args: ["rollout","restart","deployment/hello-app","-n","default"]
+    args: ["rollout","restart","deployment/hello-app","-n","$_K8S_NAMESPACE"]
 
   - id: "Wait for rollout"
     name: "gcr.io/cloud-builders/kubectl"
-    args: ["rollout","status","deployment/hello-app","-n","default","--timeout=180s"]
+    args: ["rollout","status","deployment/hello-app","-n","$_K8S_NAMESPACE","--timeout=180s"]
 
 images:
-  - "asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app:$SHORT_SHA"
-  - "asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app:latest"
+  - "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:$SHORT_SHA"
+  - "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:latest"
