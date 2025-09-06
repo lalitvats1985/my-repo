@@ -7,29 +7,29 @@ options:
 steps:
   - id: "Docker build"
     name: "gcr.io/cloud-builders/docker"
+    env:
+      - "IMAGE=$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app"
     args:
       [
         "build",
-        "-t","$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:$SHORT_SHA",
-        "-t","$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:latest",
+        "-t","$IMAGE:$SHORT_SHA",
+        "-t","$IMAGE:latest",
         "."
       ]
 
   - id: "Push :$SHORT_SHA"
     name: "gcr.io/cloud-builders/docker"
+    env:
+      - "IMAGE=$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app"
     args:
-      [
-        "push",
-        "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:$SHORT_SHA"
-      ]
+      ["push","$IMAGE:$SHORT_SHA"]
 
   - id: "Push :latest"
     name: "gcr.io/cloud-builders/docker"
+    env:
+      - "IMAGE=$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app"
     args:
-      [
-        "push",
-        "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:latest"
-      ]
+      ["push","$IMAGE:latest"]
 
   - id: "Get GKE credentials"
     name: "gcr.io/cloud-builders/gcloud"
@@ -42,7 +42,6 @@ steps:
 
   - id: "Create namespace (if missing)"
     name: "gcr.io/cloud-builders/kubectl"
-    args: ["create","ns","$_K8S_NAMESPACE","--dry-run=client","-o","yaml"]
     entrypoint: "bash"
     script: |
       set -euo pipefail
@@ -50,15 +49,18 @@ steps:
 
   - id: "Apply manifests"
     name: "gcr.io/cloud-builders/kubectl"
-    args: ["apply","-f","k8s/","-n","$_K8S_NAMESPACE"]
+    args:
+      ["apply","-f","k8s/","-n","$_K8S_NAMESPACE"]
 
   - id: "Rollout restart (pull new image)"
     name: "gcr.io/cloud-builders/kubectl"
-    args: ["rollout","restart","deployment/hello-app","-n","$_K8S_NAMESPACE"]
+    args:
+      ["rollout","restart","deployment/hello-app","-n","$_K8S_NAMESPACE"]
 
   - id: "Wait for rollout"
     name: "gcr.io/cloud-builders/kubectl"
-    args: ["rollout","status","deployment/hello-app","-n","$_K8S_NAMESPACE","--timeout=180s"]
+    args:
+      ["rollout","status","deployment/hello-app","-n","$_K8S_NAMESPACE","--timeout=180s"]
 
 images:
   - "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:$SHORT_SHA"
