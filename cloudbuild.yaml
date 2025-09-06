@@ -33,16 +33,16 @@ steps:
     name: "gcr.io/cloud-builders/gcloud"
     args:
       [
-        "container","clusters","get-credentials","my-gke-cluster",
-        "--region","asia-south1",
+        "container","clusters","get-credentials","vcipl-gke-cluster",
+        "--zone","asia-south1-a",
         "--project","$PROJECT_ID"
       ]
 
   - id: "Create namespace (if missing)"
     name: "gcr.io/cloud-builders/kubectl"
     env:
-      - "CLOUDSDK_COMPUTE_REGION=asia-south1"
-      - "CLOUDSDK_CONTAINER_CLUSTER=my-gke-cluster"
+      - "CLOUDSDK_COMPUTE_ZONE=asia-south1-a"
+      - "CLOUDSDK_CONTAINER_CLUSTER=vcipl-gke-cluster"
     args: ["create","ns","default","--dry-run=client","-o","yaml"]
     entrypoint: "bash"
     script: |
