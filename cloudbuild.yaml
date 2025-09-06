@@ -1,10 +1,5 @@
 # Cloud Build pipeline: build -> push -> deploy to GKE
-# Substitutions (set in trigger):
-#   _AR_REPO      : Artifact Registry repo name (e.g. app-images)
-#   _AR_REGION    : Artifact Registry region (e.g. asia-south1)
-#   _GKE_CLUSTER  : GKE cluster name
-#   _GKE_REGION   : GKE cluster region
-#   _K8S_NAMESPACE: Kubernetes namespace (default: default)
+# Hard-coded configuration for new-project-23jan2025
 #
 # Built-in vars used: $PROJECT_ID, $SHORT_SHA
 #
@@ -21,7 +16,7 @@ steps:
   - id: "Docker build"
     name: "gcr.io/cloud-builders/docker"
     env:
-      - "IMAGE=$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app"
+      - "IMAGE=asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app"
     args:
       [
         "build",
@@ -33,50 +28,50 @@ steps:
   - id: "Push :$SHORT_SHA"
     name: "gcr.io/cloud-builders/docker"
     env:
-      - "IMAGE=$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app"
+      - "IMAGE=asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app"
     args: ["push","$IMAGE:$SHORT_SHA"]
 
   - id: "Push :latest"
     name: "gcr.io/cloud-builders/docker"
     env:
-      - "IMAGE=$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app"
+      - "IMAGE=asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app"
     args: ["push","$IMAGE:latest"]
 
   - id: "Get GKE credentials"
     name: "gcr.io/cloud-builders/gcloud"
     args:
       [
-        "container","clusters","get-credentials","$_GKE_CLUSTER",
-        "--region","$_GKE_REGION",
+        "container","clusters","get-credentials","my-gke-cluster",  # Replace with your GKE cluster name
+        "--region","asia-south1",                                   # Replace with your GKE region
         "--project","$PROJECT_ID"
       ]
 
   - id: "Create namespace (if missing)"
     name: "gcr.io/cloud-builders/kubectl"
     env:
-      - "CLOUDSDK_COMPUTE_REGION=$_GKE_REGION"
-      - "CLOUDSDK_CONTAINER_CLUSTER=$_GKE_CLUSTER"
+      - "CLOUDSDK_COMPUTE_REGION=asia-south1"      # Replace with your GKE region
+      - "CLOUDSDK_CONTAINER_CLUSTER=my-gke-cluster" # Replace with your GKE cluster name
     args:
       [
-        "create","ns","$_K8S_NAMESPACE","--dry-run=client","-o","yaml"
+        "create","ns","default","--dry-run=client","-o","yaml"
       ]
     entrypoint: "bash"
     script: |
       set -euo pipefail
-      kubectl create ns "$_K8S_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+      kubectl create ns "default" --dry-run=client -o yaml | kubectl apply -f -
 
   - id: "Apply manifests"
     name: "gcr.io/cloud-builders/kubectl"
-    args: ["apply","-f","k8s/","-n","$_K8S_NAMESPACE"]
+    args: ["apply","-f","k8s/","-n","default"]
 
   - id: "Rollout restart (pull new image)"
     name: "gcr.io/cloud-builders/kubectl"
-    args: ["rollout","restart","deployment/hello-app","-n","$_K8S_NAMESPACE"]
+    args: ["rollout","restart","deployment/hello-app","-n","default"]
 
   - id: "Wait for rollout"
     name: "gcr.io/cloud-builders/kubectl"
-    args: ["rollout","status","deployment/hello-app","-n","$_K8S_NAMESPACE","--timeout=180s"]
+    args: ["rollout","status","deployment/hello-app","-n","default","--timeout=180s"]
 
 images:
-  - "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:$SHORT_SHA"
-  - "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:latest"
+  - "asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app:$SHORT_SHA"
+  - "asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app:latest"
