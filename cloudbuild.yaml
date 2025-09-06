@@ -7,29 +7,29 @@ options:
 steps:
   - id: "Docker build"
     name: "gcr.io/cloud-builders/docker"
-    env:
-      - "IMAGE=$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app"
     args:
       [
         "build",
-        "-t","$IMAGE:$SHORT_SHA",
-        "-t","$IMAGE:latest",
+        "-t","$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:$SHORT_SHA",
+        "-t","$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:latest",
         "."
       ]
 
   - id: "Push :$SHORT_SHA"
     name: "gcr.io/cloud-builders/docker"
-    env:
-      - "IMAGE=$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app"
     args:
-      ["push","$IMAGE:$SHORT_SHA"]
+      [
+        "push",
+        "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:$SHORT_SHA"
+      ]
 
   - id: "Push :latest"
     name: "gcr.io/cloud-builders/docker"
-    env:
-      - "IMAGE=$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app"
     args:
-      ["push","$IMAGE:latest"]
+      [
+        "push",
+        "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:latest"
+      ]
 
   - id: "Get GKE credentials"
     name: "gcr.io/cloud-builders/gcloud"
@@ -49,18 +49,15 @@ steps:
 
   - id: "Apply manifests"
     name: "gcr.io/cloud-builders/kubectl"
-    args:
-      ["apply","-f","k8s/","-n","$_K8S_NAMESPACE"]
+    args: ["apply","-f","k8s/","-n","$_K8S_NAMESPACE"]
 
-  - id: "Rollout restart (pull new image)"
+  - id: "Rollout restart"
     name: "gcr.io/cloud-builders/kubectl"
-    args:
-      ["rollout","restart","deployment/hello-app","-n","$_K8S_NAMESPACE"]
+    args: ["rollout","restart","deployment/hello-app","-n","$_K8S_NAMESPACE"]
 
   - id: "Wait for rollout"
     name: "gcr.io/cloud-builders/kubectl"
-    args:
-      ["rollout","status","deployment/hello-app","-n","$_K8S_NAMESPACE","--timeout=180s"]
+    args: ["rollout","status","deployment/hello-app","-n","$_K8S_NAMESPACE","--timeout=180s"]
 
 images:
   - "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:$SHORT_SHA"
