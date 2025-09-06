@@ -1,13 +1,5 @@
 # Cloud Build pipeline: build -> push -> deploy to GKE
 # Hard-coded configuration for new-project-23jan2025
-#
-# Built-in vars used: $PROJECT_ID, $SHORT_SHA
-#
-# Strategy:
-#   - Build image with :$SHORT_SHA and :latest
-#   - Push both tags
-#   - Apply k8s manifests (image in manifest is 'latest')
-#   - Force a rollout restart so pods pull the new 'latest'
 
 options:
   logging: CLOUD_LOGGING_ONLY
@@ -41,20 +33,14 @@ steps:
     name: "gcr.io/cloud-builders/gcloud"
     args:
       [
-        "container","clusters","get-credentials","my-gke-cluster",  # Replace with your GKE cluster name
-        "--region","asia-south1",                                   # Replace with your GKE region
+        "container","clusters","get-credentials","my-gke-cluster",
+        "--region","asia-south1",
         "--project","$PROJECT_ID"
       ]
 
   - id: "Create namespace (if missing)"
     name: "gcr.io/cloud-builders/kubectl"
-    env:
-      - "CLOUDSDK_COMPUTE_REGION=asia-south1"      # Replace with your GKE region
-      - "CLOUDSDK_CONTAINER_CLUSTER=my-gke-cluster" # Replace with your GKE cluster name
-    args:
-      [
-        "create","ns","default","--dry-run=client","-o","yaml"
-      ]
+    args: ["create","ns","default","--dry-run=client","-o","yaml"]
     entrypoint: "bash"
     script: |
       set -euo pipefail
@@ -75,3 +61,4 @@ steps:
 images:
   - "asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app:$SHORT_SHA"
   - "asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app:latest"
+
