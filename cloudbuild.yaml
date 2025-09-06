@@ -1,0 +1,82 @@
+# Cloud Build pipeline: build -> push -> deploy to GKE
+# Substitutions (set in trigger):
+#   _AR_REPO      : Artifact Registry repo name (e.g. app-images)
+#   _AR_REGION    : Artifact Registry region (e.g. asia-south1)
+#   _GKE_CLUSTER  : GKE cluster name
+#   _GKE_REGION   : GKE cluster region
+#   _K8S_NAMESPACE: Kubernetes namespace (default: default)
+#
+# Built-in vars used: $PROJECT_ID, $SHORT_SHA
+#
+# Strategy:
+#   - Build image with :$SHORT_SHA and :latest
+#   - Push both tags
+#   - Apply k8s manifests (image in manifest is 'latest')
+#   - Force a rollout restart so pods pull the new 'latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  - id: "Docker build"
+    name: "gcr.io/cloud-builders/docker"
+    env:
+      - "IMAGE=$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app"
+    args:
+      [
+        "build",
+        "-t","$IMAGE:$SHORT_SHA",
+        "-t","$IMAGE:latest",
+        "."
+      ]
+
+  - id: "Push :$SHORT_SHA"
+    name: "gcr.io/cloud-builders/docker"
+    env:
+      - "IMAGE=$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app"
+    args: ["push","$IMAGE:$SHORT_SHA"]
+
+  - id: "Push :latest"
+    name: "gcr.io/cloud-builders/docker"
+    env:
+      - "IMAGE=$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app"
+    args: ["push","$IMAGE:latest"]
+
+  - id: "Get GKE credentials"
+    name: "gcr.io/cloud-builders/gcloud"
+    args:
+      [
+        "container","clusters","get-credentials","$_GKE_CLUSTER",
+        "--region","$_GKE_REGION",
+        "--project","$PROJECT_ID"
+      ]
+
+  - id: "Create namespace (if missing)"
+    name: "gcr.io/cloud-builders/kubectl"
+    env:
+      - "CLOUDSDK_COMPUTE_REGION=$_GKE_REGION"
+      - "CLOUDSDK_CONTAINER_CLUSTER=$_GKE_CLUSTER"
+    args:
+      [
+        "create","ns","$_K8S_NAMESPACE","--dry-run=client","-o","yaml"
+      ]
+    entrypoint: "bash"
+    script: |
+      set -euo pipefail
+      kubectl create ns "$_K8S_NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+
+  - id: "Apply manifests"
+    name: "gcr.io/cloud-builders/kubectl"
+    args: ["apply","-f","k8s/","-n","$_K8S_NAMESPACE"]
+
+  - id: "Rollout restart (pull new image)"
+    name: "gcr.io/cloud-builders/kubectl"
+    args: ["rollout","restart","deployment/hello-app","-n","$_K8S_NAMESPACE"]
+
+  - id: "Wait for rollout"
+    name: "gcr.io/cloud-builders/kubectl"
+    args: ["rollout","status","deployment/hello-app","-n","$_K8S_NAMESPACE","--timeout=180s"]
+
+images:
+  - "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:$SHORT_SHA"
+  - "$_AR_REGION-docker.pkg.dev/$PROJECT_ID/$_AR_REPO/hello-app:latest"
