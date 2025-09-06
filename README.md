@@ -100,3 +100,4 @@ Push to `main` and Cloud Build will:
 - `Dockerfile` — builds the container
 - `k8s/` — Kubernetes manifests
 - `cloudbuild.yaml` — CI pipeline
+# Trigger test Sat Sep  6 12:44:23 IST 2025
