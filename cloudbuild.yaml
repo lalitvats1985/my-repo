@@ -64,4 +64,3 @@ steps:
 images:
   - "asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app:$SHORT_SHA"
   - "asia-south1-docker.pkg.dev/new-project-23jan2025/my-docker-repo/hello-app:latest"
-
